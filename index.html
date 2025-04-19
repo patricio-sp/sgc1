@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Compras</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@latest"></script>
+    <style>
+        /* Estilos personalizados para componentes que no están en Tailwind o requieren modificaciones */
+        .nav-link.active {
+            background-color: #6b7280; /* Cambia el color de fondo para la pestaña activa */
+            color: #ffffff;          /* Cambia el color del texto para la pestaña activa */
+            border-radius: 0.375rem; /* Agrega bordes redondeados, igual que en Tailwind */
+            padding-left: 0.75rem;  /* Agrega padding, igual que en Tailwind */
+            padding-right: 0.75rem; /* Agrega padding, igual que en Tailwind */
+        }
+        .nav-link:hover {
+            background-color: #d1d5db; /* Cambia el color de fondo al pasar el mouse */
+            color: #1f2937;          /* Cambia el color del texto al pasar el mouse */
+            border-radius: 0.375rem; /* Agrega bordes redondeados, igual que en Tailwind */
+            padding-left: 0.75rem;  /* Agrega padding, igual que en Tailwind */
+            padding-right: 0.75rem; /* Agrega padding, igual que en Tailwind */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-inter">
+    <nav class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-semibold">Sistema de Gestión de Compras</h1>
+            <ul class="flex space-x-4">
+                <li class="nav-item">
+                    <a class="nav-link" href="#requerimientos">Requerimientos</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#cotizaciones">Cotizaciones</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#materiales">Materiales</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mx-auto mt-8">
+        <section id="requerimientos" class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Requerimientos de Materiales</h2>
+            <div id="requerimientos-lista" class="bg-white shadow-md rounded-lg p-4">
+                <p class="text-gray-500">No hay requerimientos registrados.</p>
+            </div>
+            <button id="crear-requerimiento" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4">
+                Crear Requerimiento
+            </button>
+        </section>
+
+        <section id="cotizaciones" class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Cotizaciones</h2>
+            <div id="cotizaciones-lista" class="bg-white shadow-md rounded-lg p-4">
+                <p class="text-gray-500">No hay cotizaciones registradas.</p>
+            </div>
+            <button id="crear-cotizacion" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4">
+                Crear Cotización
+            </button>
+        </section>
+
+        <section id="materiales" class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Materiales</h2>
+            <div id="materiales-lista" class="bg-white shadow-md rounded-lg p-4">
+                <p class="text-gray-500">No hay materiales registrados.</p>
+            </div>
+            <button id="crear-material" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded mt-4">
+                Crear Material
+            </button>
+        </section>
+    </div>
+
+    <script>
+        // Clases para representar los datos
+        class Material {
+            constructor(nombre, unidad_medida) {
+                this.nombre = nombre;
+                this.unidad_medida = unidad_medida;
+            }
+
+            toString() {
+                return `${this.nombre} (${this.unidad_medida})`;
+            }
+        }
+
+        class Requerimiento {
+            constructor(obra, fecha) {
+                this.obra = obra;
+                this.fecha = fecha;
+                this.materiales = {};
+                this.estado = "Pendiente"; // Pendiente, Cotizado, Aprobado, Comprado
+            }
+
+            agregarMaterial(material, cantidad) {
+                if (!(material instanceof Material)) {
+                    throw new TypeError("material debe ser un objeto de la clase Material");
+                }
+                if (typeof cantidad !== 'number' || cantidad <= 0) {
+                    throw new TypeError("cantidad debe ser un número mayor que cero");
+                }
+                this.materiales[material.nombre] = cantidad;
+            }
+
+            toString() {
+                const materialesStr = Object.entries(this.materiales)
+                    .map(([nombre, cantidad]) => `${nombre}: ${cantidad}`)
+                    .join(', ');
+                return `Obra: ${this.obra}, Fecha: ${this.fecha.toLocaleDateString()}, Materiales: ${materialesStr}, Estado: ${this.estado}`;
+            }
+        }
+
+        class Cotizacion {
+            constructor(proveedor, fecha) {
+                this.proveedor = proveedor;
+                this.fecha = fecha;
+                this.materiales = {};
+                this.total = 0;
+            }
+
+            agregarMaterial(material, precioUnitario) {
+                if (!(material instanceof Material)) {
+                    throw new TypeError("material debe ser un objeto de la clase Material");
+                }
+                if (typeof precioUnitario !== 'number' || precioUnitario <= 0) {
+                    throw new TypeError("precioUnitario debe ser un número mayor que cero");
+                }
+                this.materiales[material.nombre] = precioUnitario;
+            }
+
+            calcularTotal(cantidades) {
+              if (typeof cantidades !== 'object' || cantidades === null) {
+                    throw new TypeError("cantidades debe ser un objeto");
+                }
+                this.total = 0;
+                for (const nombreMaterial in this.materiales) {
+                    if (cantidades[nombreMaterial]) {
+                        this.total += this.materiales[nombreMaterial] * cantidades[nombreMaterial];
+                    }
+                }
+            }
+
+            toString() {
+                const materialesStr = Object.entries(this.materiales)
+                    .map(([nombre, precio]) => `${nombre}: $${precio.toFixed(2)}`)
+                    .join(', ');
+                return `Proveedor: ${this.proveedor}, Fecha: ${this.fecha.toLocaleDateString()}, Materiales: ${materialesStr}, Total: $${this.total.toFixed(2)}`;
+            }
+        }
+
+        // Datos de ejemplo (para inicializar la aplicación)
+        const materiales = [
+            new Material("Cemento", "kg"),
+            new Material("Arena", "m3"),
+            new Material("Ladrillos", "unidad"),
+            new Material("Hierro", "kg"),
+            new Material("Madera", "m3"),
+            new Material("Pintura", "l"),
+            new Material("Tornillos", "unidad"),
+            new Material("Alambre", "m")
+        ];
+
+        const requerimientos = [];
+        const cotizaciones = [];
+
+        // Funciones para manejar la lógica de la aplicación
+        function inicializarMateriales() {
+            const materialesLista = document.getElementById("materiales-lista");
+            materialesLista.innerHTML = ""; // Limpiar la lista
+            if (materiales.length === 0) {
+                materialesLista.innerHTML = "<p class='text-gray-500'>No hay materiales registrados.</p>";
+                return;
+            }
+            const ul = document.createElement("ul");
+            ul.className = "list-disc list-inside space-y-2";
+            materiales.forEach(material => {
+                const li = document.createElement("li");
+                li.className = "text-gray-700";
+                li.textContent = material.toString();
+                ul.appendChild(li);
+            });
+            materialesLista.appendChild(ul);
+        }
+
+        function inicializarRequerimientos() {
+            const requerimientosLista = document.getElementById("requerimientos-lista");
+            requerimientosLista.innerHTML = ""; // Limpiar la lista
+            if (requerimientos.length === 0) {
+                requerimientosLista.innerHTML = "<p class='text-gray-500'>No hay requerimientos registrados.</p>";
+                return;
+            }
+            const ul = document.createElement("ul");
+            ul.className = "space-y-4";
+            requerimientos.forEach(requerimiento => {
+                const li = document.createElement("li");
+                li.className = "bg-white shadow-md rounded-lg p-4";
+                li.textContent = requerimiento.toString();
+                ul.appendChild(li);
+            });
+            requerimientosLista.appendChild(ul);
+        }
+
+        function inicializarCotizaciones() {
+            const cotizacionesLista = document.getElementById("cotizaciones-lista");
+            cotizacionesLista.innerHTML = ""; // Limpiar la lista
+            if (cotizaciones.length === 0) {
+                cotizacionesLista.innerHTML = "<p class='text-gray-500'>No hay cotizaciones registradas.</p>";
+                return;
+            }
+            const ul = document.createElement("ul");
+            ul.className = "space-y-4";
+            cotizaciones.forEach(cotizacion => {
+                const li = document.createElement("li");
+                li.className = "bg-white shadow-md rounded-lg p-4";
+                li.textContent = cotizacion.toString();
+                ul.appendChild(li);
+            });
+            cotizacionesLista.appendChild(ul);
+        }
+
+        function registrarRequerimiento() {
+            const obra = prompt("Ingrese el nombre de la obra:");
+            const fechaStr = prompt("Ingrese la fecha del requerimiento (YYYY-MM-DD):");
+            let fecha;
+            try {
+                fecha = new Date(fechaStr);
+                if (isNaN(fecha.getTime())) {
+                    throw new Error("Fecha inválida");
+                }
+            } catch (error) {
+                alert("Error: Formato de fecha incorrecto. Use YYYY-MM-DD.");
+                return;
+            }
+
+            const requerimiento = new Requerimiento(obra, fecha);
+
+            while (true) {
+                let materialIndex = parseInt(prompt(`Materiales disponibles:\n${materiales.map((m, i) => `${i + 1}. ${m.toString()}`).join('\n')}\nIngrese el número del material a agregar (o 0 para terminar):`), 10);
+                if (materialIndex === 0) {
+                    break;
+                }
+                if (materialIndex > 0 && materialIndex <= materiales.length) {
+                    const material = materiales[materialIndex - 1];
+                    const cantidad = parseFloat(prompt(`Ingrese la cantidad de ${material.nombre}:`));
+                    try {
+                        requerimiento.agregarMaterial(material, cantidad);
+                    } catch (error) {
+                        alert(error.message);
+                        return;
+                    }
+                } else {
+                    alert("Número de material inválido.");
+                }
+            }
+
+            requerimientos.push(requerimiento);
+            alert("Requerimiento registrado exitosamente.");
+            inicializarRequerimientos(); // Actualizar la lista de requerimientos en la UI
+        }
+
+      function registrarCotizacion() {
+        if (requerimientos.length === 0) {
+            alert("No hay requerimientos para cotizar. Registre un requerimiento primero.");
+            return;
+        }
+
+        let requerimientoIndex;
+        let requerimientoACotizar;
+
+        while (true) {
+            const requerimientosDisponibles = requerimientos
+                .filter(req => req.estado === "Pendiente")
+                .map((req, index) => `${index + 1}. ${req.toString()}`)
+                .join('\n');
+
+            if (!requerimientosDisponibles) {
+                alert("No hay requerimientos pendientes para cotizar.");
+                return;
+            }
+
+            requerimientoIndex = parseInt(prompt(`Requerimientos pendientes:\n${requerimientosDisponibles}\nIngrese el número del requerimiento a cotizar:`), 10);
+
+            if (isNaN(requerimientoIndex) || requerimientoIndex <= 0) {
+                alert("Entrada inválida. Por favor, ingrese un número válido.");
+                continue; // Vuelve al inicio del bucle while
+            }
+
+            requerimientoACotizar = requerimientos.find((req, index) => index + 1 === requerimientoIndex);
+
+            if (!requerimientoACotizar) {
+                alert("Número de requerimiento inválido.");
+                continue; // Vuelve al inicio del bucle while
+            }
+
+            if (requerimientoACotizar.estado !== "Pendiente") {
+                alert("El requerimiento seleccionado ya ha sido cotizado o no está en estado Pendiente.");
+                continue; // Vuelve al inicio del bucle while
+            }
+
+            break; // Sale del bucle while si se selecciona un requerimiento válido y pendiente
+        }
+
+
+        const proveedor = prompt("Ingrese el nombre del proveedor:");
+        const fechaStr = prompt("Ingrese la fecha de la cotización (YYYY-MM-DD):");
+        let fecha;
+        try {
+            fecha = new Date(fechaStr);
+            if (isNaN(fecha.getTime())) {
+                throw new Error("Fecha inválida");
+            }
+        } catch (error) {
+            alert("Error: Formato de fecha incorrecto. Use YYYY-MM-DD.");
+            return;
+        }
+
+        const cotizacion = new Cotizacion(proveedor, fecha);
+
+        const cantidades = {};
+        for (const nombreMaterial in requerimientoACotizar.materiales) {
+            const cantidad = requerimientoACotizar.materiales[nombreMaterial];
+            const materialObj = materiales.find(mat => mat.nombre === nombreMaterial); // Encuentra el objeto Material
+            if (materialObj) {
+                const precioUnitario = parseFloat(prompt(`Ingrese el precio unitario de ${nombreMaterial} para ${proveedor}:`));
+                 try {
+                    cotizacion.agregarMaterial(materialObj, precioUnitario);
+                } catch (error) {
+                    alert(error.message);
+                    return;
+                }
+                cantidades[nombreMaterial] = cantidad; // Usa el nombre del material como clave
+            }
+        }
+        
+        cotizacion.calcularTotal(cantidades); // Pasa el diccionario de cantidades
+
+        cotizaciones.push(cotizacion);
+        requerimientoACotizar.estado = "Cotizado"; // Actualiza el estado del requerimiento
+        alert("Cotización registrada exitosamente.");
+        inicializarCotizaciones(); // Actualizar la lista de cotizaciones
+        inicializarRequerimientos();
+    }
+
+        function mostrarRequerimientos() {
+            inicializarRequerimientos();
+        }
+
+        function mostrarCotizaciones() {
+            inicializarCotizaciones();
+        }
+      
+        function seleccionarCotizacion() {
+          if (requerimientos.length === 0) {
+            alert("No hay requerimientos registrados.");
+            return;
+          }
+
+          let requerimientoIndex;
+          let requerimientoSeleccionado;
+
+          while (true) {
+                const requerimientosCotizados = requerimientos
+                    .filter(req => req.estado === "Cotizado")
+                    .map((req, index) => `${index + 1}. ${req.toString()}`)
+                    .join('\n');
+
+                if (!requerimientosCotizados) {
+                    alert("No hay requerimientos cotizados para seleccionar.");
+                    return;
+                }
+
+                requerimientoIndex = parseInt(prompt(`Requerimientos cotizados:\n${requerimientosCotizados}\nIngrese el número del requerimiento para seleccionar la cotización:`), 10);
+
+                if (isNaN(requerimientoIndex) || requerimientoIndex <= 0) {
+                    alert("Entrada inválida. Por favor, ingrese un número válido.");
+                    continue;
+                }
+
+                requerimientoSeleccionado = requerimientos.find((req, index) => index + 1 === requerimientoIndex);
+
+                 if (!requerimientoSeleccionado) {
+                    alert("Número de requerimiento inválido.");
+                    continue;
+                }
+
+                if (requerimientoSeleccionado.estado !== "Cotizado") {
+                    alert("El requerimiento seleccionado no está en estado Cotizado.");
+                    continue;
+                }
+                break;
+          }
+          
+            const cotizacionesParaRequerimiento = cotizaciones.filter(cotizacion => {
+                return Object.keys(requerimientoSeleccionado.materiales).every(materialNombre => 
+                    cotizacion.materiales[materialNombre] !== undefined
+                );
+            });
+
+            if (cotizacionesParaRequerimiento.length === 0) {
+                alert("No hay cotizaciones disponibles que cubran todos los materiales del requerimiento.");
+                return;
+            }
+
+            let cotizacionSeleccionada = cotizacionesParaRequerimiento.reduce((mejorCotizacion, cotizacionActual) => {
+                return cotizacionActual.total < mejorCotizacion.total ? cotizacionActual : mejorCotizacion;
+            }, cotizacionesParaRequerimiento[0]);  // Inicializa con la primera cotización en la lista
+
+            alert(`La cotización seleccionada es de ${cotizacionSeleccionada.proveedor} con un total de $${cotizacionSeleccionada.total.toFixed(2)}`);
+            console.log(cotizacionSeleccionada);
+            return cotizacionSeleccionada; // Para usarla en la siguiente función
+        }
+
+        function aprobarRequerimiento() {
+            if (requerimientos.length === 0) {
+                alert("No hay requerimientos para aprobar.");
+                return;
+            }
+          
+            let requerimientoIndex;
+            let requerimientoAAprobar;
+            
+             while (true) {
+                const requerimientosCotizados = requerimientos
+                    .filter(req => req.estado === "Cotizado")
+                    .map((req, index) => `${index + 1}. ${req.toString()}`)
+                    .join('\n');
+
+                if (!requerimientosCotizados) {
+                    alert("No hay requerimientos cotizados para aprobar.");
+                    return;
+                }
+
+                requerimientoIndex = parseInt(prompt(`Requerimientos cotizados:\n${requerimientosCotizados}\nIngrese el número del requerimiento a aprobar:`), 10);
+
+                if (isNaN(requerimientoIndex) || requerimientoIndex <= 0) {
+                    alert("Entrada inválida. Por favor, ingrese un número válido.");
+                    continue;
+                }
+
+                requerimientoAAprobar = requerimientos.find((req, index) => index + 1 === requerimientoIndex);
+
+                 if (!requerimientoAAprobar) {
+                    alert("Número de requerimiento inválido.");
+                    continue;
+                }
+
+                if (requerimientoAAprobar.estado !== "Cotizado") {
+                    alert("El requerimiento seleccionado no está en estado Cotizado.");
+                    continue;
+                }
+                break;
+             }
+            requerimientoAAprobar.estado = "Aprobado";
+            alert("Requerimiento aprobado.");
+            inicializarRequerimientos();
+        }
+
+        function marcarRequerimientoComoComprado() {
+            if (requerimientos.length === 0) {
+                alert("No hay requerimientos para marcar como comprado.");
+                return;
+            }
+            
+            let requerimientoIndex;
+            let requerimientoAMarcar;
+            
+            while(true){
+                const requerimientosAprobados = requerimientos
+                    .filter(req => req.estado === "Aprobado")
+                    .map((req, index) => `${index + 1}. ${req.toString()}`)
+                    .join('\n');
+                
+                if(!requerimientosAprobados){
+                    alert("No hay requerimientos Aprobados para marcar como Comprado")
+                    return
+                }
+                
+                requerimientoIndex = parseInt(prompt(`Requerimientos Aprobados:\n${requerimientosAprobados}\nIngrese el número del requerimiento a marcar como comprado:`), 10);
+
+                if (isNaN(requerimientoIndex) || requerimientoIndex <= 0) {
+                    alert("Entrada inválida. Por favor, ingrese un número válido.");
+                    continue;
+                }
+
+                requerimientoAMarcar = requerimientos.find((req, index) => index + 1 === requerimientoIndex);
+
+                 if (!requerimientoAMarcar) {
+                    alert("Número de requerimiento inválido.");
+                    continue;
+                }
+
+                if (requerimientoAMarcar.estado !== "Aprobado") {
+                    alert("El requerimiento seleccionado no está en estado Aprobado.");
+                    continue;
+                }
+                break;
+            }
+            requerimientoAMarcar.estado = "Comprado";
+            alert("Requerimiento marcado como comprado.");
+            inicializarRequerimientos();
+        }
+
+        // Event Listeners para los botones
+        document.getElementById("crear-requerimiento").addEventListener("click", registrarRequerimiento);
+        document.getElementById("crear-cotizacion").addEventListener("click", registrarCotizacion);
+        document.getElementById("crear-material").addEventListener("click", () => {
+            const nombre = prompt("Ingrese el nombre del material:");
+            const unidadMedida = prompt("Ingrese la unidad de medida (ej., kg, m3, unidad):");
+            if (nombre && unidadMedida) {
+                materiales.push(new Material(nombre, unidadMedida));
+                inicializarMateriales(); // Actualizar la lista de materiales
+                alert("Material registrado exitosamente.");
+            } else {
+                alert("Error: Debe ingresar nombre y unidad de medida.");
+            }
+        });
+        document.getElementById("mostrar-requerimientos").addEventListener("click", mostrarRequerimientos);
+        document.getElementById("mostrar-cotizaciones").addEventListener("click", mostrarCotizaciones);
+        document.getElementById("seleccionar-cotizacion").addEventListener("click", seleccionarCotizacion);
+        document.getElementById("aprobar-requerimiento").addEventListener("click", aprobarRequerimiento);
+        document.getElementById("marcar-requerimiento-como-comprado").addEventListener("click", marcarRequerimientoComoComprado);
+
+        // Inicializar las listas al cargar la página
+        inicializarMateriales();
+        inicializarRequerimientos();
+        inicializarCotizaciones();
+    </script>
+</body>
+</html>
